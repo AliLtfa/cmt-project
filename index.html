@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICBHI Audio Preprocessing Pipeline</title>
+    <!-- Import VT323 pixel font -->
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* RETRO HACKER THEME (DEFAULT) */
+            --bg-color: #050505;
+            --node-bg: #050505;
+            --terminal-green: #39FF14;
+            --dark-green: #0a2a0a;
+            --highlight-green: #66ff4d;
+
+            --font-family: 'VT323', monospace;
+            --code-font: 'VT323', monospace;
+            
+            --text-shadow-glow: 0 0 10px var(--terminal-green);
+            --node-shadow: 0 0 15px rgba(57, 255, 20, 0.15);
+            --node-shadow-hover: 0 0 25px rgba(57, 255, 20, 0.4);
+            
+            --border-style: dashed;
+            --summary-shadow: 0 0 8px var(--terminal-green);
+            --summary-hover: #fff;
+            --text-dim: #ccc;
+            
+            --link-color: #fff;
+            --btn-border: var(--terminal-green);
+            --btn-bg: rgba(57, 255, 20, 0.05);
+            --btn-hover-bg: var(--terminal-green);
+            --btn-hover-text: var(--bg-color);
+            --btn-shadow: 0 0 10px var(--terminal-green);
+            
+            --output-bg: var(--terminal-green);
+            --output-text: var(--bg-color);
+            --output-shadow: 0 0 20px var(--terminal-green);
+            
+            --arrow-color: var(--terminal-green);
+            --arrow-anim: pulse 2s infinite;
+
+            /* Font Sizes (Retro needs larger px values for visibility) */
+            --base-font-size: 22px;
+            --h1-font-size: 40px;
+            --node-title-size: 30px;
+            --short-desc-size: 24px;
+            --summary-size: 24px;
+            --content-size: 22px;
+            --output-size: 28px;
+            --btn-size: 20px;
+            --pre-size: 20px;
+
+            --title-weight: bold;
+            --desc-weight: normal;
+
+            /* Node 8 Special Colors */
+            --node8-border: #ff3399;
+            --node8-shadow: 0 0 15px rgba(255, 51, 153, 0.2);
+            --node8-shadow-hover: 0 0 25px rgba(255, 51, 153, 0.4);
+            --node8-title: #ff3399;
+            --node8-desc: #ff99cc;
+            --node8-content: #ffccdd;
+            --node8-pre-bg: rgba(255, 51, 153, 0.1);
+            --node8-pre-text: #fff;
+            --node8-btn-hover: #ff3399;
+        }
+
+        /* MODERN BORING TECH THEME */
+        [data-theme="modern"] {
+            --bg-color: #f4f6f8;
+            --node-bg: #ffffff;
+            --terminal-green: #212529; /* Deep grey for main text */
+            --dark-green: #f8f9fa; /* Light grey for details block */
+            --highlight-green: #0d6efd; /* Primary Blue */
+
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --code-font: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            
+            --text-shadow-glow: none;
+            --node-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            --node-shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+            
+            --border-style: solid;
+            --summary-shadow: none;
+            --summary-hover: #0d6efd;
+            --text-dim: #495057;
+            
+            --link-color: #0d6efd;
+            --btn-border: #0d6efd;
+            --btn-bg: #ffffff;
+            --btn-hover-bg: #0d6efd;
+            --btn-hover-text: #ffffff;
+            --btn-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+            
+            --output-bg: #198754; /* Success Green */
+            --output-text: #ffffff;
+            --output-shadow: 0 4px 16px rgba(25, 135, 84, 0.25);
+            
+            --arrow-color: #ced4da;
+            --arrow-anim: none;
+
+            /* Standardized Font Sizes */
+            --base-font-size: 16px;
+            --h1-font-size: 32px;
+            --node-title-size: 22px;
+            --short-desc-size: 16px;
+            --summary-size: 18px;
+            --content-size: 15px;
+            --output-size: 20px;
+            --btn-size: 14px;
+            --pre-size: 14px;
+
+            --title-weight: 600;
+            --desc-weight: 400;
+
+            /* Node 8 Special Colors (Modern Purple) */
+            --node8-border: #6f42c1;
+            --node8-shadow: 0 2px 8px rgba(111, 66, 193, 0.08);
+            --node8-shadow-hover: 0 8px 24px rgba(111, 66, 193, 0.15);
+            --node8-title: #6f42c1;
+            --node8-desc: #495057;
+            --node8-content: #212529;
+            --node8-pre-bg: #f8f9fa;
+            --node8-pre-text: #212529;
+            --node8-btn-hover: #6f42c1;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--terminal-green);
+            font-family: var(--font-family);
+            font-size: var(--base-font-size);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        h1 {
+            text-align: center;
+            text-transform: uppercase;
+            text-shadow: var(--text-shadow-glow);
+            margin-bottom: 40px;
+            font-size: var(--h1-font-size);
+            font-weight: var(--title-weight);
+        }
+
+        /* Flowchart Node Styling */
+        .node {
+            background-color: var(--node-bg);
+            border: 2px solid var(--terminal-green);
+            border-radius: 4px;
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+            box-shadow: var(--node-shadow);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .node:hover {
+            box-shadow: var(--node-shadow-hover);
+            transform: scale(1.01);
+            border-color: var(--highlight-green);
+        }
+
+        .node-title {
+            font-size: var(--node-title-size);
+            font-weight: var(--title-weight);
+            margin-top: 0;
+            margin-bottom: 12px;
+            border-bottom: 1px var(--border-style) var(--terminal-green);
+            padding-bottom: 5px;
+            color: var(--highlight-green);
+        }
+
+        .short-desc {
+            font-size: var(--short-desc-size);
+            font-weight: var(--desc-weight);
+            line-height: 1.3;
+        }
+
+        /* The Arrow connecting nodes */
+        .arrow {
+            font-size: var(--h1-font-size);
+            margin: 15px 0;
+            text-shadow: var(--text-shadow-glow);
+            animation: var(--arrow-anim);
+            color: var(--arrow-color);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+
+        /* Interactive Collapsible Sections */
+        details {
+            margin-top: 20px;
+            background: var(--dark-green);
+            padding: 15px;
+            border-left: 3px solid var(--terminal-green);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        summary {
+            font-size: var(--summary-size);
+            font-weight: var(--title-weight);
+            outline: none;
+            transition: color 0.2s;
+        }
+
+        summary:hover {
+            text-shadow: var(--summary-shadow);
+            color: var(--summary-hover);
+        }
+
+        .content {
+            margin-top: 15px;
+            font-size: var(--content-size);
+            line-height: 1.5;
+            color: var(--text-dim);
+            cursor: text;
+        }
+
+        .content p {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .content ul {
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-left: 20px;
+            list-style-type: square;
+        }
+
+        .content li {
+            margin-bottom: 8px;
+        }
+
+        /* Output Format Box */
+        .output-box {
+            background-color: var(--output-bg);
+            color: var(--output-text);
+            font-size: var(--output-size);
+            font-weight: var(--title-weight);
+            padding: 15px 30px;
+            border-radius: 4px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: var(--output-shadow);
+        }
+
+        .output-box .output-link {
+            color: var(--output-text);
+            border-bottom: 2px var(--border-style) var(--output-text);
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+
+        .output-box .output-link:hover {
+            opacity: 0.8;
+        }
+
+        /* Link Styling */
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+            transition: 0.2s;
+        }
+
+        .links-container {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .btn {
+            border: 1px solid var(--btn-border);
+            padding: 8px 12px;
+            display: inline-block;
+            background: var(--btn-bg);
+            font-size: var(--btn-size);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            color: var(--btn-hover-text);
+            background-color: var(--btn-hover-bg);
+            box-shadow: var(--btn-shadow);
+        }
+
+        /* Toggle Button Container */
+        .theme-toggle-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+
+        .theme-toggle-btn {
+            background-color: var(--node-bg);
+            color: var(--terminal-green);
+            border: 2px solid var(--terminal-green);
+            padding: 8px 16px;
+            font-family: var(--font-family);
+            font-size: var(--btn-size);
+            font-weight: var(--title-weight);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            box-shadow: var(--text-shadow-glow);
+            border-radius: 4px;
+        }
+
+        .theme-toggle-btn:hover {
+            background-color: var(--terminal-green);
+            color: var(--node-bg);
+            box-shadow: var(--node-shadow-hover);
+        }
+
+        /* --- Node 8 Special Theme Bindings --- */
+        .node-special {
+            border-color: var(--node8-border);
+            box-shadow: var(--node8-shadow);
+        }
+
+        .node-special:hover {
+            border-color: var(--node8-border);
+            box-shadow: var(--node8-shadow-hover);
+        }
+
+        .node-special .node-title {
+            color: var(--node8-title);
+            border-bottom-color: var(--node8-border);
+        }
+
+        .node-special .short-desc {
+            color: var(--node8-desc);
+        }
+
+        .node-special details {
+            border-left-color: var(--node8-border);
+        }
+
+        .node-special summary {
+            color: var(--node8-desc);
+        }
+
+        .node-special .content {
+            color: var(--node8-content);
+        }
+
+        .node-special pre {
+            background: var(--node8-pre-bg);
+            border: 1px solid var(--node8-border);
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        .node-special pre code {
+            font-family: var(--code-font);
+            font-size: var(--pre-size);
+            color: var(--node8-pre-text);
+        }
+
+        .node-special .btn {
+            border-color: var(--node8-border);
+            color: var(--node8-desc);
+        }
+
+        .node-special .btn:hover {
+            background-color: var(--node8-btn-hover);
+            color: var(--output-text);
+            box-shadow: var(--node8-shadow);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- THEME TOGGLE BUTTON -->
+    <div class="theme-toggle-container">
+        <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleTheme()">[ Switch to Modern Theme ]</button>
+    </div>
+
+    <h1>> ICBHI Preprocessing & Training Pipeline_</h1>
+
+    <!-- NODE 1 -->
+    <div class="node">
+        <div class="node-title">1. Resampling & Amplitude Normalization</div>
+        <div class="short-desc">Resample all recordings to 16 kHz and normalize amplitude to[-1, 1]. Equalizes devices recording at different sample rates (4 kHz vs 44.1 kHz).</div>
+        
+        <details>
+            <summary>[+] View more details</summary>
+            <div class="content">
+                <p>The dataset was recorded with 4 different stethoscopes, and they don't all record at the same speed. Three of them save 44,100 audio samples per second, but the Litt3200 only saves 4,000 per second. That's like having some cameras shoot at 4K and one at 480p — they can't be compared directly. Resampling everything to 16,000 samples/second solves this. 16 kHz is enough to capture all medically useful frequencies (lung sounds sit between 100–1000 Hz) and low enough that the Litt3200 files don't end up with weird empty gaps in their frequency range.</p>
+                <p>There's also a volume problem. Some stethoscopes are just louder than others — the LittC2SE outputs much stronger signals than the Meditron. Without fixing this, a model might learn "quiet recording = Meditron = probably COPD" instead of learning what COPD actually sounds like. The fix is straightforward: for each file, subtract the average value (centers the signal at zero) and divide by the peak (scales everything to[-1, 1]). After this, a breathing sound recorded on any device has the same volume range.</p>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://arxiv.org/abs/2108.01991" class="btn" target="_blank">[Lit: Nguyen et al. 2021 — spectrum correction for device calibration]</a>
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/ICBHI_Preprocessing_Output.ipynb" class="btn" target="_blank">[Notebook: ICBHI_Preprocessing_Output.ipynb]</a>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- NODE 2 -->
+    <div class="node">
+        <div class="node-title">2. Cycle Segmentation & Padding</div>
+        <div class="short-desc">Slice recordings into individual breathing cycles using expert annotations. Pad or truncate each cycle to 5.0 seconds (P95 = 4.59s, covers 96.6%).</div>
+        
+        <details>
+            <summary>[+] View more details</summary>
+            <div class="content">
+                <p>Each recording is 10–90 seconds of continuous breathing — multiple inhale-exhale pairs in a row. Feeding the whole recording to a model at once isn't ideal because (a) they're all different lengths, and (b) models work better on individual breaths.</p>
+                <p>The dataset comes with annotation files where doctors marked exactly where each breath starts and ends. Using these timestamps, each recording gets cut into individual breathing cycles — 6,898 cycles total across all 920 recordings.</p>
+                <p>The issue is that cycles are all different lengths. The shortest is under half a second, the longest is over 16 seconds. Neural networks need fixed-size inputs (every item in a batch must be the same shape), so one target length needs to be chosen. Looking at the distribution: 95% of cycles are 4.59 seconds or shorter. 5.0 seconds is a sensible target. Shorter cycles get zero-padded at the end (silence added). Longer cycles get trimmed. This covers 96.6% of the data without cutting off any actual breathing.</p>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://pubmed.ncbi.nlm.nih.gov/30708353/" class="btn" target="_blank">[Lit: Rocha et al. 2019 — An open access database for the evaluation of respiratory sound classification algorithms]</a>
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/ICBHI_Preprocessing_Output.ipynb" class="btn" target="_blank">[Notebook: ICBHI_Preprocessing_Output.ipynb]</a>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- NODE 3 -->
+    <div class="node">
+        <div class="node-title">3. 3-Channel Mel Spectrogram</div>
+        <div class="short-desc">Convert each cycle into a (3, 128, 157) tensor: log-mel energy + delta + delta-delta. Captures both spectral content and temporal dynamics. Enables direct use of ImageNet-pretrained models.</div>
+        
+        <details>
+            <summary>[+] View more details</summary>
+            <div class="content">
+                <p>This is where audio turns into an image. The idea: take a 1D sound wave (just amplitude over time) and convert it into a 2D picture showing which frequencies are present at each moment. This is called a spectrogram — basically a heatmap where the x-axis is time, the y-axis is frequency, and the color represents how loud that frequency is at that moment.</p>
+                <p>The mel scale is used for the frequency axis, which spaces lower frequencies further apart and squeezes higher frequencies together. This matches how human hearing works — differences between 200 Hz and 400 Hz are more perceptible than between 4000 Hz and 4200 Hz. The spectrogram uses 128 mel bands (so the y-axis has 128 pixels) and the time axis ends up with 157 frames for a 5-second clip.</p>
+                <p>An important setting: the maximum frequency is capped at 2,000 Hz. The reason is that the Litt3200 stethoscope records at 4,000 Hz, which means it physically cannot capture anything above 2,000 Hz (the Nyquist limit). If a higher cap were used, the Litt3200 spectrograms would have a dead zone in the upper frequencies that the other devices don't have — and a model could use that dead zone to identify the device instead of the disease.</p>
+                <p>On top of the basic mel spectrogram, two extra layers are computed. The delta is the first derivative — how fast the spectrum is changing between consecutive frames. Crackles show up as sharp spikes here because they're sudden, explosive sounds. The delta-delta is the second derivative — the acceleration of change. Wheezes show up as sustained patterns in the mel channel because they're continuous tonal sounds.</p>
+                <p>All three get stacked into a (3, 128, 157) tensor — 3 channels, like an RGB image. This means it plugs directly into ResNet or EfficientNet pretrained on ImageNet without changing the model architecture at all. These models already know how to extract edges and textures from 3-channel images; they just need to learn that these particular edges and textures correspond to lung diseases.</p>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11200393/" class="btn" target="_blank">[Lit: Rehan et al. 2024 — Auscultation-Based Pulmonary Disease Detection through Parallel Transformation and Deep Learning]</a>
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/ICBHI_Preprocessing_Output.ipynb" class="btn" target="_blank">[Notebook: ICBHI_Preprocessing_Output.ipynb]</a>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- NODE 4 -->
+    <div class="node">
+        <div class="node-title">4. Per-Equipment Normalization</div>
+        <div class="short-desc">Compute separate z-score statistics (mean/std) per stethoscope type from training data only. Removes device-specific spectral fingerprints so the model learns disease features, not hardware.</div>
+        
+        <details>
+            <summary>[+] View more details</summary>
+            <div class="content">
+                <p>In any ML project, features get normalized to mean=0 and std=1. This helps the optimizer converge faster and prevents features with large values from dominating smaller ones. The standard approach is to compute one mean and one std across the entire training set and apply them everywhere.</p>
+                <p>But there's a catch here: each stethoscope has a different hardware frequency response. The AKGC417L picks up more low-frequency energy, the Meditron is stronger in the mid-range. So even after standard normalization, averaging the spectrograms by device would reveal four different-looking spectral shapes. A model could exploit this — "this spectral shape belongs to Meditron, and most Meditron patients have COPD, so predict COPD." That's not learning the disease, that's learning the hardware.</p>
+                <p>The solution: instead of one global mean/std, separate statistics are computed for each of the four equipment types. AKGC417L gets its own mean array (shape: 3 channels × 128 mel bands) and its own std array, computed only from AKGC417L training spectrograms. Same for the other three devices. Each spectrogram is then normalized using the statistics of its own device type.</p>
+                <p>After this, plotting the average spectral profile for each device shows they're nearly identical — the device fingerprint is erased. The model can no longer tell which stethoscope recorded it, so it's forced to learn actual disease patterns. Val and test data are normalized using the training statistics only (never their own stats), so there's no information leakage.</p>
+                <p>This idea comes from Nguyen et al. (2021), who called it "spectrum correction" and originally used it for classifying different acoustic environments. It's adapted here for respiratory sounds.</p>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://arxiv.org/abs/2108.01991" class="btn" target="_blank">[Lit: Nguyen et al. 2021 — spectrum correction across recording devices]</a>
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/ICBHI_Preprocessing_Output.ipynb" class="btn" target="_blank">[Notebook: ICBHI_Preprocessing_Output.ipynb]</a>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- NODE 5 -->
+    <div class="node">
+        <div class="node-title">5. Class Grouping (8 → 5 classes)</div>
+        <div class="short-desc">Merge rare diseases into clinically similar groups: URTI+LRTI → Resp. Infection, Bronchiectasis+Bronchiolitis+Asthma → Other Chronic. Ensures every class has ≥6 patients for reliable evaluation.</div>
+        
+        <details>
+            <summary>[+] View more details</summary>
+            <div class="content">
+                <p>The original dataset labels 8 diseases: COPD (64 patients), Healthy (26), URTI (14), Bronchiectasis (7), Bronchiolitis (6), Pneumonia (6), LRTI (2), and Asthma (1).</p>
+                <p>The problem with rare classes is simple: a disease pattern can't be learned from one person. If there's 1 Asthma patient with 6 breathing cycles, augmenting those 6 cycles to 600 just creates 600 copies of the same person's breathing. A model would learn "patient 141's breathing pattern" not "what Asthma sounds like." At test time with a new Asthma patient, it would fail.</p>
+                <p>Following what Kiirala et al. (2024) published, clinically similar diseases get merged:</p>
+                <ul>
+                    <li><strong>URTI + LRTI → "Resp. Infection"</strong> (both are infections of the airway, one upper, one lower — even doctors often struggle to distinguish them by sound alone)</li>
+                    <li><strong>Bronchiectasis + Bronchiolitis + Asthma → "Other Chronic"</strong> (all are chronic conditions causing narrowing or damage to the airways, producing similar wheezing and crackling patterns)</li>
+                    <li><strong>COPD, Healthy, and Pneumonia</strong> stay as they are (each has enough patients and is clinically distinct)</li>
+                </ul>
+                <p>After grouping, every class has at least 6 patients. This means the 70/15/15 split can guarantee all 5 classes appear in train, val, and test — which is essential for meaningful evaluation.</p>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://eurasip.org/Proceedings/Eusipco/Eusipco2024/pdfs/0001556.pdf" class="btn" target="_blank">[Lit: Class grouping strategy for ICBHI]</a>
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/ICBHI_Preprocessing_Output.ipynb" class="btn" target="_blank">[Notebook: ICBHI_Preprocessing_Output.ipynb]</a>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- NODE 6 -->
+    <div class="node">
+        <div class="node-title">6. Audio-Level Oversampling</div>
+        <div class="short-desc">Generate synthetic minority-class samples via pitch shift, time stretch, noise injection, and volume perturbation in the time domain. Brings all classes above 300 training cycles.</div>
+        
+        <details>
+            <summary>[+] View more details</summary>
+            <div class="content">
+                <p>After splitting, the training set has 4,309 COPD cycles but only 119 Resp. Infection cycles — a 36-to-1 ratio. Training on this directly means the model sees COPD so much more often that it learns to just predict COPD for everything — and it would still be right 72% of the time. High accuracy, useless model.</p>
+                <p>The obvious fix is duplicating minority samples, but that doesn't work well — the model just memorizes the duplicates. It's like studying for an exam by reading the same flashcard 50 times instead of 50 different flashcards.</p>
+                <p>Instead, new training samples are generated by modifying the original audio in ways that produce realistic variations:</p>
+                <ul>
+                    <li><strong>Pitch shift (±2 semitones):</strong> simulates different-sized patients having slightly different vocal tract resonances.</li>
+                    <li><strong>Time stretch (85–115% speed):</strong> simulates people breathing at slightly different rates.</li>
+                    <li><strong>Noise injection (small Gaussian noise):</strong> simulates background sounds in the recording room.</li>
+                    <li><strong>Volume change (70–130% gain):</strong> simulates pressing the stethoscope with different pressure.</li>
+                </ul>
+                <p>For each minority-class cycle, 2–3 of these get randomly applied to the raw audio waveform. Then the spectrogram is computed from the modified audio. Because the transformations happen before the spectrogram step, the result looks like a genuinely different recording — not a warped copy of the same image.</p>
+                <p>The threshold is set at 300 cycles minimum per class. Resp. Infection (119 original) gets 2 augmented copies each (→ 357 total). COPD (4,309 original) gets nothing — it's already way above the threshold.</p>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://www.mdpi.com/2076-3417/13/12/6956" class="btn" target="_blank">[Lit: Yang et al. 2023 — mixup and augmentation on ICBHI]</a>
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/ICBHI_Preprocessing_Output.ipynb" class="btn" target="_blank">[Notebook: ICBHI_Preprocessing_Output.ipynb]</a>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- NODE 7 -->
+    <div class="node">
+        <div class="node-title">7. Patient-Wise Train/Val/Test Split</div>
+        <div class="short-desc">Split 70%/15%/15% by patient ID (88/19/19 patients). No cycles from the same patient in different sets. Stratified to ensure all 5 classes in every split. Zero leakage verified.</div>
+        
+        <details>
+            <summary>[+] View more details</summary>
+            <div class="content">
+                <p>This is the most important decision in the whole pipeline, and it's the reason the results are honest.</p>
+                <p>Here's the trap that many published papers fall into: they split the data by individual breathing cycle. One patient might have 80 cycles, and 64 go to training while 16 go to testing. Sounds fine, right? But all 80 cycles come from the same person — same heartbeat in the background, same breathing rhythm, same vocal tract shape. The model doesn't need to learn what COPD sounds like; it just needs to learn what patient 176 sounds like. Train accuracy: 95%. Test accuracy: 90%. Real-world accuracy on a new patient: 50%. That's data leakage.</p>
+                <p>The correct approach: split by patient ID, not by cycle. 88 patients go to training, 19 to validation (for tuning hyperparameters), 19 to testing (for final evaluation). If patient 176 is in the training set, all 133 of their cycles are in the training set. None leak into val or test.</p>
+                <p>The split is also stratified — meaning all 5 disease classes appear in every set. Without stratification, the only Pneumonia patient might end up in training and none in testing, making it impossible to evaluate that class. The split is verified programmatically: the intersection of patient IDs across train, val, and test is empty. Zero overlap. Zero leakage.</p>
+                <p>This follows the same principle as Leave-One-Subject-Out (LOSO) cross-validation used by Kiirala et al. (2024), except instead of leaving out one patient at a time, 19 are held out at once — faster to train while still being methodologically rigorous.</p>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://eurasip.org/Proceedings/Eusipco/Eusipco2024/pdfs/0001556.pdf" class="btn" target="_blank">[Lit: Leave-one-subject-out evaluation]</a>
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/ICBHI_Preprocessing_Output.ipynb" class="btn" target="_blank">[Notebook: ICBHI_Preprocessing_Output.ipynb]</a>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- OUTPUT BOX -->
+    <div class="output-box">
+        Output → <a href="https://drive.google.com/file/d/1uJF6wMuEJm_lZfsMwb_egm98avGp8BBm/view?usp=drive_link" class="output-link" target="_blank">(N, 3, 128, 157) .npz files ready for CNN training [Download Here]</a>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- NODE 8 (Training Placeholder) -->
+    <!-- Inline styles removed, relying solely on CSS variables which handle theming automatically -->
+    <div class="node node-special">
+        <div class="node-title">8. CNN Model Training (Implementation Phase)</div>
+        <div class="short-desc">Train an ImageNet-pretrained CNN (e.g., ResNet50 / ConvNeXt) using the generated 3-channel mel spectrograms.</div>
+        
+        <!-- Details 1: Training Techniques -->
+        <details>
+            <summary>[+] View recommended training techniques</summary>
+            <div class="content">
+                <p><strong>Final techniques for the training team:</strong><br>
+                These techniques should be applied during training. The entire preprocessing pipeline was designed specifically to support these methods and yield robust generalization on the test set.</p>
+                
+                <ul>
+                    <li><strong>SpecAugment:</strong> Strongly recommended. Randomly masks out rectangular blocks of the spectrogram on the fly (e.g., zero out mel bands 40-52 for all time steps, or zero out time frames 80-100 for all frequencies). This forces the model not to rely on any single frequency band or time window.</li>
+                    
+                    <li><strong>Mixup:</strong> Important regularizer. Blends two training samples together (e.g., 70% of a COPD spectrogram + 30% of a Pneumonia spectrogram, with a soft label of 0.7 COPD / 0.3 Pneumonia). Prevents the model from memorizing specific examples and naturally smooths decision boundaries between classes.</li>
+                    
+                    <li><strong>Balanced Batching (Weighted Sampler):</strong> Even after audio-level oversampling, COPD still has 4,309 cycles vs. 357 for Resp. Infection. A weighted sampler ensures each training batch contains roughly equal representation from all classes by sampling minority classes more frequently.</li>
+                    
+                    <li><strong>Weighted Loss (Focal Loss with Sqrt Weights):</strong> A loss function that penalizes errors on minority classes more heavily. Focal loss down-weights samples the model already classifies correctly, focusing gradient updates on misclassified samples. Using the square-root of class weights keeps the penalty ratio manageable (~3.5x instead of 12x).</li>
+                </ul>
+            </div>
+        </details>
+
+        <!-- Details 2: Dataset Instructions -->
+        <details>
+            <summary>[+] How to load & use the preprocessed dataset</summary>
+            <div class="content">
+                
+                <p><strong>Step 1: Open Google Colab and connect your Drive</strong></p>
+                <pre><code>from google.colab import drive
+drive.mount('/content/drive')</code></pre>
+
+                <p><strong>Step 2: Make sure these folders exist on your Drive</strong></p>
+                <pre><code>MyDrive/
+  dataset_preprocessed/    ← the preprocessed data (unzip here)
+  ml_project_output/       ← create this folder with any name</code></pre>
+
+                <p><strong>Step 3: Load the data</strong></p>
+                <pre><code>import numpy as np
+import json
+
+DATA_DIR = '/content/drive/MyDrive/dataset_preprocessed/'
+
+with open(DATA_DIR + 'metadata.json') as f:
+    meta = json.load(f)
+
+train = np.load(DATA_DIR + 'train_data.npz')
+val   = np.load(DATA_DIR + 'val_data.npz')
+test  = np.load(DATA_DIR + 'test_data.npz')</code></pre>
+
+                <p><strong>Step 4: Access the arrays</strong></p>
+                <pre><code>X_train = train['spectrograms']    # shape: (5960, 3, 128, 157)
+y_train = train['disease_labels']  # shape: (5960,) — ints 0-4
+pids    = train['patient_ids']     # shape: (5960,)</code></pre>
+
+                <p><strong>Step 5: Know what the labels mean</strong></p>
+                <pre><code># label index → disease name
+print(meta['idx_to_label'])
+# {'0': 'COPD', '1': 'Healthy', '2': 'Other Chronic', '3': 'Pneumonia', '4': 'Resp. Infection'}
+
+# class weights for loss function
+print(meta['class_weights'])</code></pre>
+
+                <p><strong>Step 6: Convert to PyTorch (if using PyTorch)</strong></p>
+                <pre><code>import torch
+from torch.utils.data import TensorDataset, DataLoader
+
+X = torch.FloatTensor(train['spectrograms'])   # (5960, 3, 128, 157)
+y = torch.LongTensor(train['disease_labels'])  # (5960,)
+
+dataset = TensorDataset(X, y)
+loader  = DataLoader(dataset, batch_size=32, shuffle=True)</code></pre>
+
+                <p><strong>Things to remember:</strong></p>
+                <ul>
+                    <li>Input shape is <strong>(batch, 3, 128, 157)</strong> — 3 channels, not 1. Any pretrained ImageNet model (ResNet, EfficientNet, etc.) works directly since they expect 3 channels.</li>
+                    <li>The data is <strong>already normalized</strong>. Don't run any additional normalization on it. Just load and use.</li>
+                    <li><strong>Augmented samples are already included</strong> in the training set. The minority classes were oversampled during preprocessing. SpecAugment can still be added on top during training if desired.</li>
+                    <li>Use the validation set to pick the best model. <strong>Only evaluate on the test set once</strong> at the very end.</li>
+                </ul>
+            </div>
+        </details>
+
+        <div class="links-container">
+            <a href="https://github.com/AliLtfa/cmt-project/blob/main/Training_Simple.ipynb" class="btn" target="_blank">[Notebook: Training_Simple.ipynb]</a>
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            const toggleBtn = document.getElementById('themeToggleBtn');
+            
+            // If currently using modern theme, switch to retro
+            if (body.getAttribute('data-theme') === 'modern') {
+                body.removeAttribute('data-theme');
+                toggleBtn.innerText = '[ Switch to Modern Theme ]';
+            } else {
+                // If currently using retro theme (default), switch to modern
+                body.setAttribute('data-theme', 'modern');
+                toggleBtn.innerText = '[ Switch to Retro Theme ]';
+            }
+        }
+    </script>
+</body>
+</html>
